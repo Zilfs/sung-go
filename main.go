@@ -1,68 +1,66 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
 )
 
 func main() {
-	args := os.Args
+	reader := bufio.NewReader(os.Stdin)
 
-	if len(args) < 3 || args[1] != "create" {
-		fmt.Println("❌ Penggunaan salah.")
-		fmt.Println("Gunakan format:")
-		fmt.Println("  generate-folder create <nama-proyek>")
-		os.Exit(1)
+	fmt.Print("Enter project name: ")
+	projectName, _ := reader.ReadString('\n')
+	projectName = trim(projectName)
+
+	fmt.Print("Enter target directory: ")
+	targetDir, _ := reader.ReadString('\n')
+	targetDir = trim(targetDir)
+
+	projectPath := filepath.Join(targetDir, projectName)
+
+	// check if exists
+	if _, err := os.Stat(projectPath); !os.IsNotExist(err) {
+		fmt.Println("Project already exists. Abort.")
+		return
 	}
 
-	projectName := args[2]
-	baseDir, _ := filepath.Abs(projectName)
-
-	folders := []string{
-		"app",
-		"app/assets",
-		"app/css",
-		"app/js",
+	// create base folder
+	err := os.MkdirAll(projectPath, os.ModePerm)
+	if err != nil {
+		panic(err)
 	}
 
-	files := map[string]string{
-		"app/tes.html": fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<head>
-  <title>%s</title>
-  <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-  <h1>Welcome to %s</h1>
-  <script src="js/script.js"></script>
-</body>
-</html>`, projectName, projectName),
-		"app/css/style.css": "body { font-family: sans-serif; background: #fafafa; text-align: center; }",
-		"app/js/script.js":  fmt.Sprintf("console.log('Script loaded for %s');", projectName),
+	createStructure(projectPath)
+
+	fmt.Println("Project created at:", projectPath)
+}
+
+func trim(input string) string {
+	return string([]byte(input)[:len(input)-1])
+}
+
+func createStructure(base string) {
+	dirs := []string{
+		"cmd/app",
+		"internal/domain/entity",
+		"internal/domain/repository",
+		"internal/application/service",
+		"internal/ports/inbound",
+		"internal/ports/outbound",
+		"internal/adapters/inbound/http",
+		"internal/adapters/outbound/persistence",
+		"internal/infrastructure/database",
+		"configs",
+		"migrations",
 	}
 
-	// Buat folder proyek
-	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		os.MkdirAll(baseDir, 0755)
-		fmt.Printf("📁 Folder proyek dibuat: %s\n", baseDir)
-	} else {
-		fmt.Printf("⚠️ Folder %s sudah ada. File akan ditimpa jika dibuat ulang.\n", projectName)
+	for _, dir := range dirs {
+		fullPath := filepath.Join(base, dir)
+		err := os.MkdirAll(fullPath, os.ModePerm)
+		if err != nil {
+			panic(err)
+		}
 	}
-
-	// Buat struktur folder
-	for _, folder := range folders {
-		folderPath := filepath.Join(baseDir, folder)
-		os.MkdirAll(folderPath, 0755)
-		fmt.Printf("✅ Folder dibuat: %s\n", folderPath)
-	}
-
-	// Buat file
-	for path, content := range files {
-		fullPath := filepath.Join(baseDir, path)
-		os.WriteFile(fullPath, []byte(content), 0644)
-		fmt.Printf("📝 File dibuat: %s\n", fullPath)
-	}
-
-	fmt.Printf("\n🎉 Proyek \"%s\" berhasil dibuat!\n", projectName)
 }
